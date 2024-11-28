@@ -22,7 +22,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id');
             $table->string('domain')->unique();
             $table->timestamps();
-            $table->softDeletes(); // Para el soft delete
+            $table->softDeletes();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });

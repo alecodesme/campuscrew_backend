@@ -21,4 +21,8 @@ class University extends Model
         'domain',
     ];
 
+    public function clubs()
+    {
+        return $this->hasMany(Club::class);
+    }
 }
