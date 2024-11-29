@@ -18,15 +18,15 @@ return new class extends Migration
             $table->string('country');
             $table->string('city');
             $table->string('province');
+            $table->enum('status', ['pending', 'accepted', 'rejected'])->default('pending'); // Agregar estado
             $table->string('cellphone');
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('user_id')->nullable();
             $table->string('domain')->unique();
             $table->timestamps();
             $table->softDeletes();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
-        
     }
 
     /**

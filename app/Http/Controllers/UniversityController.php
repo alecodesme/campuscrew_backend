@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\University;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class UniversityController extends Controller
@@ -30,7 +31,6 @@ class UniversityController extends Controller
                 'city' => 'required|string|max:255',
                 'province' => 'required|string|max:255',
                 'cellphone' => 'required|string|max:20',
-                'user_id' => 'required|exists:users,id',
                 'domain' => 'required|string|unique:universities,domain',
             ]);
 
@@ -92,6 +92,45 @@ class UniversityController extends Controller
             ], 500);
         }
     }
+
+    public function acceptUniversity(Request $request, $id)
+    {
+        $university = University::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => 'required|in:pending,accepted,rejected', // Validación del status
+        ]);
+
+        if ($validated['status'] == 'accepted' && !$university->user_id) {
+            $password = 'password';
+
+            $user = User::create([
+                'name' => $university->name,
+                'email' => $request->email,
+                'password' => bcrypt($password),
+                'role' => 'university',
+            ]);
+
+            $university->user_id = $user->id;
+
+            return response()->json([
+                'message' => 'University updated successfully.',
+                'university' => $university,
+                'generated_password' => $password,
+            ]);
+        }
+
+        // Actualizamos el estado de la universidad
+        $university->status = $validated['status'];
+
+        $university->save();
+
+        return response()->json([
+            'message' => 'University updated successfully.',
+            'university' => $university,
+        ]);
+    }
+
 
     public function destroy($id)
     {
