@@ -16,6 +16,7 @@ class University extends Model
         'country',
         'city',
         'province',
+        'email',
         'cellphone',
         'user_id',
         'domain',

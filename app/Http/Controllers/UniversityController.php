@@ -30,6 +30,7 @@ class UniversityController extends Controller
                 'country' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'province' => 'required|string|max:255',
+                'email' => 'required|unique:universities,email|email',
                 'cellphone' => 'required|string|max:20',
                 'domain' => 'required|string|unique:universities,domain',
             ]);
@@ -64,6 +65,7 @@ class UniversityController extends Controller
                 'address' => 'sometimes|string|max:255',
                 'country' => 'sometimes|string|max:255',
                 'city' => 'sometimes|string|max:255',
+                'email' => 'required|unique:universities,email,' . $id . '|email',
                 'province' => 'sometimes|string|max:255',
                 'cellphone' => 'sometimes|string|max:20',
                 'user_id' => 'sometimes|exists:users,id',
@@ -95,41 +97,56 @@ class UniversityController extends Controller
 
     public function acceptUniversity(Request $request, $id)
     {
-        $university = University::findOrFail($id);
+        try {
+            $university = University::findOrFail($id);
 
-        $validated = $request->validate([
-            'status' => 'required|in:pending,accepted,rejected', // Validación del status
-        ]);
-
-        if ($validated['status'] == 'accepted' && !$university->user_id) {
-            $password = 'password';
-
-            $user = User::create([
-                'name' => $university->name,
-                'email' => $request->email,
-                'password' => bcrypt($password),
-                'role' => 'university',
+            $validated = $request->validate([
+                'status' => 'required|in:pending,accepted,rejected', // Validación del status
             ]);
 
-            $university->user_id = $user->id;
+            // Si el estado es 'aceptado' y la universidad no tiene un usuario asociado
+            if ($validated['status'] == 'accepted' && !$university->user_id) {
+                $password = 'password'; // Generar una contraseña por defecto
+
+                $user = User::create([
+                    'name' => $university->name,
+                    'email' => $university->email,
+                    'password' => bcrypt($password),
+                    'role' => 'university',
+                ]);
+
+                $university->user_id = $user->id;
+            }
+
+            // Actualizamos el estado de la universidad
+            $university->status = $validated['status'];
+            $university->save();
 
             return response()->json([
                 'message' => 'University updated successfully.',
                 'university' => $university,
-                'generated_password' => $password,
+                'generated_password' => $validated['status'] == 'accepted' ? $password : null, // Retornar contraseña si se generó
             ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Manejar caso en que no se encuentre la universidad
+            return response()->json([
+                'error' => 'University not found.',
+            ], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Manejar errores de validación
+            return response()->json([
+                'error' => 'Validation error.',
+                'details' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            // Manejar otros errores
+            return response()->json([
+                'error' => 'An unexpected error occurred.',
+                'details' => $e->getMessage(),
+            ], 500);
         }
-
-        // Actualizamos el estado de la universidad
-        $university->status = $validated['status'];
-
-        $university->save();
-
-        return response()->json([
-            'message' => 'University updated successfully.',
-            'university' => $university,
-        ]);
     }
+
 
 
     public function destroy($id)

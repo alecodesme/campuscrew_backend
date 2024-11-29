@@ -15,6 +15,7 @@ Route::post('/universities', [UniversityController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/universities', [UniversityController::class, 'index']);;
+    Route::put('universities/{id}/accept', [UniversityController::class, 'acceptUniversity']);
     Route::put('/universities/{id}', [UniversityController::class, 'update']);
     Route::delete('/universities/{id}', [UniversityController::class, 'destroy']);
 })->middleware(EnsureTokenIsProvided::class);
