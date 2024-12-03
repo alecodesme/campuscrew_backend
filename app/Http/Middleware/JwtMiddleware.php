@@ -10,10 +10,18 @@ class JwtMiddleware
 {
     public function handle($request, Closure $next)
     {
-        if ($request->is('api/login')) {
+        $excludedRoutes = [
+            'api/signup',
+            'api/login',
+            'api/universities',
+        ];
+
+        if ($request->is(...$excludedRoutes)) {
             return $next($request);
         }
+
         try {
+            // Validar autenticación JWT
             JWTAuth::parseToken()->authenticate();
         } catch (JWTException $e) {
             return response()->json(['error' => 'Token not valid or not logged in.'], 401);

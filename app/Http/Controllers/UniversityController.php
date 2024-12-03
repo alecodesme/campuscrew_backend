@@ -8,7 +8,15 @@ use Illuminate\Http\Request;
 
 class UniversityController extends Controller
 {
-    public function index(Request $request)
+    public function index()
+    {
+        $universities = University::all();
+        return response()->json([
+            'universities' => $universities
+        ]);
+    }
+
+    public function getMyUniversities(Request $request)
     {
         $user = $request->user();
 

@@ -116,9 +116,9 @@ class AuthController extends Controller
             JWTAuth::invalidate($token);
 
             // Responder con un mensaje de éxito
-            return response()->json(['message' => 'Successfully logged out'], 200);
+            return response()->json(['message' => 'Successfully logged out', 'status' => true], 200);
         } catch (JWTException $e) {
-            return response()->json(['error' => 'Failed to log out'], 500);
+            return response()->json(['error' => 'Failed to log out', 'status' => false], 500);
         }
     }
 }
