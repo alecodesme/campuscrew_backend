@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\ClubController;
-use App\Http\Middleware\JwtMiddleware;
 
 Route::post('/signup', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -17,6 +16,7 @@ Route::middleware('api')->group(function () {
 
     Route::prefix('universities')->group(function () {
         Route::get('/', [UniversityController::class, 'index']);
+        Route::get('/{id}/clubs', [UniversityController::class, 'getClubs']);
         Route::put('{id}/accept', [UniversityController::class, 'acceptUniversity']);
         Route::put('/{id}', [UniversityController::class, 'update']);
         Route::delete('/{id}', [UniversityController::class, 'destroy']);

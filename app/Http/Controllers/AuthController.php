@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\UniversityNotAcceptedException;
+use App\Models\University;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
@@ -50,52 +52,65 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-
-
         try {
-            // Validación de los datos de entrada
             $validated = $request->validate([
                 'email' => 'required|string|email',
                 'password' => 'required|string',
             ]);
 
-            // Busca el usuario por email
             $user = User::where('email', $validated['email'])->first();
 
-            // Verifica si el usuario existe y la contraseña es válida
-            if (!$user || !Hash::check($validated['password'], $user->password)) {
+
+            if (!$user) {
                 throw ValidationException::withMessages([
                     'email' => ['The provided credentials are incorrect.'],
                 ]);
             }
 
-            // Genera el token de autenticación (JWT)
+            if (!Hash::check($validated['password'], $user->password)) {
+                throw ValidationException::withMessages([
+                    'password' => ['The provided credentials are incorrect.'],
+                ]);
+            }
+
+            $universityProfile = $this->getUniversityProfile($user);
+
+            if ($universityProfile->status !== 'accepted') {
+                throw new UniversityNotAcceptedException();
+            }
+
             $token = JWTAuth::attempt($validated);
 
-            // Si no se pudo generar el token, devuelve error
             if (!$token) {
                 return response()->json(['error' => 'Invalid credentials'], 401);
             }
 
-            // (Opcional) Se puede agregar el rol al token
             $token = JWTAuth::claims(['role' => $user->role])->fromUser($user);
+
+
+
+            if ($user->role == 'admin') {
+                return response()->json([
+                    'message' => 'Login successful',
+                    'user' => $user,
+                    'token' => $token,
+                ], 200);
+            }
 
             return response()->json([
                 'message' => 'Login successful',
                 'user' => $user,
+                'university' => $universityProfile,
                 'token' => $token,
             ], 200);
         } catch (ValidationException $e) {
-            // Devuelve errores de validación
             return response()->json([
                 'message' => 'Validation Error',
                 'errors' => $e->errors(),
             ], 422);
         } catch (JWTException $e) {
-            // Error al generar el token JWT
             return response()->json(['error' => 'Could not create token'], 500);
         } catch (Exception $e) {
-            // Manejo de otros errores inesperados
             return response()->json([
                 'message' => 'An unexpected error occurred during login.',
                 'error' => $e->getMessage(),
@@ -103,12 +118,26 @@ class AuthController extends Controller
         }
     }
 
+
     public function me()
     {
-        return response()->json(Auth::user());
+        $user = Auth::user();
+        $universityProfile = $this->getUniversityProfile($user);
+        if ($user->role == 'admin') {
+            return response()->json([
+                'message' => 'User admin retrieved succesfully',
+                'user' => $user,
+            ], 200);
+        } else {
+            return response()->json([
+                'message' => 'User university retrieved succesfully',
+                'user' => $user,
+                'university' => $universityProfile,
+            ], 200);
+        }
     }
 
-    public function logout(Request $request)
+    public function logout()
     {
         try {
             $token = JWTAuth::getToken();
@@ -120,5 +149,21 @@ class AuthController extends Controller
         } catch (JWTException $e) {
             return response()->json(['error' => 'Failed to log out', 'status' => false], 500);
         }
+    }
+
+    private function getUniversityProfile(User $user)
+    {
+        $universityProfile = null;
+
+        if ($user->role == 'university') {
+            $universityProfile = University::where('user_id', $user->id)->first();
+
+            // Instead of returning response, just return null or false if not found
+            if (!$universityProfile) {
+                return null;  // Return null if the profile is not found
+            }
+        }
+
+        return $universityProfile;
     }
 }

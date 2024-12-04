@@ -16,6 +16,20 @@ class UniversityController extends Controller
         ]);
     }
 
+    public function getClubs($universityId)
+    {
+        $university = University::findOrFail($universityId);
+
+        if (!$university) {
+            return response()->json([
+                'error' => 'University not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'clubs' => $university->clubs
+        ]);
+    }
     public function getMyUniversities(Request $request)
     {
         $user = $request->user();
@@ -109,12 +123,11 @@ class UniversityController extends Controller
             $university = University::findOrFail($id);
 
             $validated = $request->validate([
-                'status' => 'required|in:pending,accepted,rejected', // Validación del status
+                'status' => 'required|in:pending,accepted,rejected',
             ]);
 
-            // Si el estado es 'aceptado' y la universidad no tiene un usuario asociado
             if ($validated['status'] == 'accepted' && !$university->user_id) {
-                $password = 'password'; // Generar una contraseña por defecto
+                $password = 'password';
 
                 $user = User::create([
                     'name' => $university->name,
@@ -126,7 +139,6 @@ class UniversityController extends Controller
                 $university->user_id = $user->id;
             }
 
-            // Actualizamos el estado de la universidad
             $university->status = $validated['status'];
             $university->save();
 
@@ -136,18 +148,15 @@ class UniversityController extends Controller
                 'generated_password' => $validated['status'] == 'accepted' ? $password : null, // Retornar contraseña si se generó
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            // Manejar caso en que no se encuentre la universidad
             return response()->json([
                 'error' => 'University not found.',
             ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Manejar errores de validación
             return response()->json([
                 'error' => 'Validation error.',
                 'details' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            // Manejar otros errores
             return response()->json([
                 'error' => 'An unexpected error occurred.',
                 'details' => $e->getMessage(),
