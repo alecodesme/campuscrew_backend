@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\University;
 use App\Models\User;
+use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class UniversityController extends Controller
 {
@@ -63,12 +66,12 @@ class UniversityController extends Controller
                 'message' => 'University created successfully.',
                 'university' => $university
             ], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation error.',
                 'errors' => $e->errors()
             ], 422);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'message' => 'An error occurred while creating the university.',
                 'error' => $e->getMessage()
@@ -100,11 +103,11 @@ class UniversityController extends Controller
                 'message' => 'University updated successfully.',
                 'university' => $university,
             ], 200);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'University not found.',
             ], 404);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation error.',
                 'errors' => $e->errors(),
@@ -117,7 +120,7 @@ class UniversityController extends Controller
         }
     }
 
-    public function acceptUniversity(Request $request, $id)
+    public function statusUniversity(Request $request, $id)
     {
         try {
             $university = University::findOrFail($id);
@@ -126,32 +129,18 @@ class UniversityController extends Controller
                 'status' => 'required|in:pending,accepted,rejected',
             ]);
 
-            if ($validated['status'] == 'accepted' && !$university->user_id) {
-                $password = 'password';
-
-                $user = User::create([
-                    'name' => $university->name,
-                    'email' => $university->email,
-                    'password' => bcrypt($password),
-                    'role' => 'university',
-                ]);
-
-                $university->user_id = $user->id;
+            if ($validated['status'] == 'accepted' && $university->user_id == null) {
+                return $this->handleAcceptedStatus($university, $validated['status']);
+            } else {
+                return $this->handleOtherStatuses($university, $validated['status']);
             }
 
-            $university->status = $validated['status'];
-            $university->save();
-
-            return response()->json([
-                'message' => 'University updated successfully.',
-                'university' => $university,
-                'generated_password' => $validated['status'] == 'accepted' ? $password : null, // Retornar contraseña si se generó
-            ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->handleOtherStatuses($university, $validated['status']);
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'error' => 'University not found.',
             ], 404);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'error' => 'Validation error.',
                 'details' => $e->errors(),
@@ -162,6 +151,44 @@ class UniversityController extends Controller
                 'details' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function handleAcceptedStatus($university, $status)
+    {
+        if (!$university->user_id) {
+            $password = 'password';
+
+            $user = User::create([
+                'name' => $university->name,
+                'email' => $university->email,
+                'password' => bcrypt($password),
+                'role' => 'university',
+            ]);
+
+            $university->user_id = $user->id;
+        }
+
+        $university->status = $status;
+        $university->save();
+
+        return response()->json([
+            'message' => 'University updated successfully.',
+            'university' => $university,
+            'user_created' => true,
+            'generated_password' => $password,
+        ]);
+    }
+
+    private function handleOtherStatuses($university, $status)
+    {
+        $university->status = $status;
+        $university->save();
+
+        return response()->json([
+            'message' => 'University updated successfully.',
+            'user_created' => false,
+            'university' => $university,
+        ]);
     }
 
 
@@ -176,11 +203,11 @@ class UniversityController extends Controller
             return response()->json([
                 'message' => 'University deleted successfully.',
             ], 200);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'University not found.',
             ], 404);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             var_dump($e);
             return response()->json([
                 'message' => 'An error occurred while deleting the university.',

@@ -18,7 +18,6 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         try {
-            // Validación de los datos de la solicitud
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|unique:users',
@@ -26,7 +25,6 @@ class AuthController extends Controller
                 'role' => 'required|in:admin,university',
             ]);
 
-            // Creación del nuevo usuario
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
@@ -34,17 +32,15 @@ class AuthController extends Controller
                 'role' => $validated['role'],
             ]);
 
-            // Respuesta exitosa
             return response()->json([
                 'message' => 'User created successfully',
                 'user' => $user,
             ], 201);
         } catch (\Exception $e) {
-            // Capturar cualquier error y devolver una respuesta con el mensaje de error
             return response()->json([
                 'error' => 'Registration failed',
                 'message' => $e->getMessage(),
-            ], 500); // Puedes cambiar el código de estado según el tipo de error
+            ], 500);
         }
     }
 
@@ -75,8 +71,10 @@ class AuthController extends Controller
 
             $universityProfile = $this->getUniversityProfile($user);
 
-            if ($universityProfile->status !== 'accepted') {
-                throw new UniversityNotAcceptedException();
+            if ($universityProfile) {
+                if ($universityProfile->status !== 'accepted') {
+                    throw new UniversityNotAcceptedException();
+                }
             }
 
             $token = JWTAuth::attempt($validated);
@@ -86,8 +84,6 @@ class AuthController extends Controller
             }
 
             $token = JWTAuth::claims(['role' => $user->role])->fromUser($user);
-
-
 
             if ($user->role == 'admin') {
                 return response()->json([
@@ -158,9 +154,8 @@ class AuthController extends Controller
         if ($user->role == 'university') {
             $universityProfile = University::where('user_id', $user->id)->first();
 
-            // Instead of returning response, just return null or false if not found
             if (!$universityProfile) {
-                return null;  // Return null if the profile is not found
+                return null;
             }
         }
 

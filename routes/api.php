@@ -17,7 +17,7 @@ Route::middleware('api')->group(function () {
     Route::prefix('universities')->group(function () {
         Route::get('/', [UniversityController::class, 'index']);
         Route::get('/{id}/clubs', [UniversityController::class, 'getClubs']);
-        Route::put('{id}/accept', [UniversityController::class, 'acceptUniversity']);
+        Route::put('{id}/status', [UniversityController::class, 'statusUniversity']);
         Route::put('/{id}', [UniversityController::class, 'update']);
         Route::delete('/{id}', [UniversityController::class, 'destroy']);
     });
