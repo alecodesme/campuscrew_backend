@@ -2,15 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AcceptUniversityMail;
 use App\Models\University;
 use App\Models\User;
+use App\Services\EmailSender;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class UniversityController extends Controller
 {
+
+
     public function index()
     {
         $universities = University::all();
@@ -123,19 +131,18 @@ class UniversityController extends Controller
     public function statusUniversity(Request $request, $id)
     {
         try {
+
             $university = University::findOrFail($id);
 
             $validated = $request->validate([
                 'status' => 'required|in:pending,accepted,rejected',
             ]);
-
             if ($validated['status'] == 'accepted' && $university->user_id == null) {
+
                 return $this->handleAcceptedStatus($university, $validated['status']);
             } else {
                 return $this->handleOtherStatuses($university, $validated['status']);
             }
-
-            return $this->handleOtherStatuses($university, $validated['status']);
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'error' => 'University not found.',
@@ -155,29 +162,81 @@ class UniversityController extends Controller
 
     private function handleAcceptedStatus($university, $status)
     {
-        if (!$university->user_id) {
-            $password = 'password';
+        try {
+            $userCreated = false;
+            $password = null;
 
-            $user = User::create([
-                'name' => $university->name,
-                'email' => $university->email,
-                'password' => bcrypt($password),
-                'role' => 'university',
+            DB::beginTransaction();
+
+            if ($university->user_id == null) {
+                $password = 'password';
+
+                $user = User::create([
+                    'name' => $university->name,
+                    'email' => $university->email,
+                    'password' => bcrypt($password),
+                    'role' => 'university',
+                ]);
+
+                $university->user_id = $user->id;
+                $userCreated = true;
+            }
+
+            $university->status = $status;
+
+            $university->save();
+
+            $mailData = [
+                'email' => $user->email,
+                'password' => $password,
+                'university' => $university->name,
+            ];
+
+
+            $this->sendAcceptanceEmail($user->email, $mailData);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'University updated successfully.',
+                'university' => $university,
+                'user_created' => $userCreated,
+                'generated_password' => $password,
+            ]);
+        } catch (QueryException $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Database error occurred.',
+                'details' => $e->getMessage(),
+            ], 500);
+        } catch (Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'An unexpected error occurred.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function sendAcceptanceEmail($email, $mailData)
+    {
+        try {
+            Mail::to($email)->send(new AcceptUniversityMail($mailData));
+            return response()->json([
+                'message' => 'Enviado',
+                'user_created' => false,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'No se envio',
+                'error' => $e->getMessage(),
+                'user_created' => false,
             ]);
 
-            $university->user_id = $user->id;
+            throw $e;
         }
-
-        $university->status = $status;
-        $university->save();
-
-        return response()->json([
-            'message' => 'University updated successfully.',
-            'university' => $university,
-            'user_created' => true,
-            'generated_password' => $password,
-        ]);
     }
+
 
     private function handleOtherStatuses($university, $status)
     {
