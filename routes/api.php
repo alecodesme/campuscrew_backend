@@ -1,13 +1,17 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\StudentController;
 
 Route::post('/signup', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/universities', [UniversityController::class, 'store']);
+Route::post('/students', [StudentController::class, 'store']);
+Route::post('/activities', [ActivityController::class, 'store']);
 
 Route::middleware('api')->group(function () {
 
@@ -16,6 +20,7 @@ Route::middleware('api')->group(function () {
 
     Route::prefix('universities')->group(function () {
         Route::get('/', [UniversityController::class, 'index']);
+        Route::get('{id}/students', [UniversityController::class, 'getStudents']);
         Route::get('/{id}/clubs', [UniversityController::class, 'getClubs']);
         Route::put('{id}/status', [UniversityController::class, 'statusUniversity']);
         Route::put('/{id}', [UniversityController::class, 'update']);
