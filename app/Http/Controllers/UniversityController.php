@@ -3,15 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Mail\AcceptUniversityMail;
+use App\Mail\RejectUniversityMail;
 use App\Models\University;
 use App\Models\User;
-use App\Services\EmailSender;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -27,6 +26,8 @@ class UniversityController extends Controller
         ]);
     }
 
+
+
     public function getClubs($universityId)
     {
         $university = University::findOrFail($universityId);
@@ -41,6 +42,22 @@ class UniversityController extends Controller
             'clubs' => $university->clubs
         ]);
     }
+
+    public function getStudents($universityId)
+    {
+        $university = University::findOrFail($universityId);
+
+        if (!$university) {
+            return response()->json([
+                'error' => 'University not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'students' => $university->students
+        ]);
+    }
+
     public function getMyUniversities(Request $request)
     {
         $user = $request->user();
@@ -51,6 +68,17 @@ class UniversityController extends Controller
 
         return response()->json([
             'universities' => $universities
+        ]);
+    }
+
+    public function getUniversity($universityId)
+    {
+        $university = University::findOrFail($universityId)
+            ->with('clubs')
+            ->get();
+
+        return response()->json([
+            'data' => $university
         ]);
     }
 
@@ -87,7 +115,6 @@ class UniversityController extends Controller
         }
     }
 
-    // Editar universidad
     public function update(Request $request, $id)
     {
         try {
@@ -138,8 +165,9 @@ class UniversityController extends Controller
                 'status' => 'required|in:pending,accepted,rejected',
             ]);
             if ($validated['status'] == 'accepted' && $university->user_id == null) {
-
                 return $this->handleAcceptedStatus($university, $validated['status']);
+            } else if ($validated['status'] == 'rejected' && $university->user_id == null) {
+                return $this->handleRejectedStatus($university, $validated['status'], $request['observation']);
             } else {
                 return $this->handleOtherStatuses($university, $validated['status']);
             }
@@ -218,19 +246,68 @@ class UniversityController extends Controller
         }
     }
 
+    private function handleRejectedStatus($university, $status, $observation)
+    {
+        DB::beginTransaction();
+
+        try {
+            $university->status = $status;
+
+            $university->save();
+
+            $mailData = [
+                'email' => $university->email,
+                'observation' => $observation,
+                'university' => $university->name,
+            ];
+
+
+            $this->sendRejectedEmail($university->email, $mailData);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'University rejected successfully.',
+                'university' => $university,
+                'user_created' => false,
+            ]);
+        } catch (QueryException $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Database error occurred.',
+                'details' => $e->getMessage(),
+            ], 500);
+        } catch (Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'An unexpected error occurred.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function sendAcceptanceEmail($email, $mailData)
     {
         try {
             Mail::to($email)->send(new AcceptUniversityMail($mailData));
-            return response()->json([
-                'message' => 'Enviado',
-                'user_created' => false,
-            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'No se envio',
+                'message' => 'Email couldnt sended',
                 'error' => $e->getMessage(),
-                'user_created' => false,
+            ]);
+
+            throw $e;
+        }
+    }
+
+    private function sendRejectedEmail($email, $mailData)
+    {
+        try {
+            Mail::to($email)->send(new RejectUniversityMail($mailData));
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Email couldnt sended',
+                'error' => $e->getMessage(),
             ]);
 
             throw $e;

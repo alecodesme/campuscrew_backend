@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('activities', function (Blueprint $table) {
+        Schema::create('enrollment_clubs', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('description');
-            $table->string('type');
-            $table->boolean('is_event');
             $table->unsignedBigInteger('club_id');
+            $table->unsignedBigInteger('student_id');
+            $table->date('joined_at');
             $table->timestamps();
+
             $table->foreign('club_id')->references('id')->on('clubs')->onDelete('cascade');
+            $table->foreign('student_id')->references('id')->on('students')->onDelete('cascade');
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('activities');
+        Schema::dropIfExists('enrollment_clubs');
     }
 };

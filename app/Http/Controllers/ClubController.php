@@ -31,10 +31,6 @@ class ClubController extends Controller
                 'error' => 'Error creating club: ' . $e->getMessage(),
             ], 500);
         }
-        return response()->json([
-            'message' => 'Club created successfully.',
-            'data' => $club
-        ], 201);
     }
 
     // Obtener todos los clubes

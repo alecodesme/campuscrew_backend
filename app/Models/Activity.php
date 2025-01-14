@@ -11,6 +11,14 @@ class Activity extends Model
 
     protected $fillable = [
         'name',
+        'description',
+        'type',
+        'is_event',
         'club_id'
     ];
+
+    public function club()
+    {
+        return $this->belongsTo(Club::class);
+    }
 }

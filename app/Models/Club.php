@@ -18,13 +18,11 @@ class Club extends Model
         'tags',
     ];
 
-    // Relación con la universidad
     public function university()
     {
         return $this->belongsTo(University::class);
     }
 
-    // Relación con el usuario creador
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
